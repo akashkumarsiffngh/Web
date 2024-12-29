@@ -1,0 +1,299 @@
+<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AS CROSS</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            position: relative;
+        }
+        .container {
+            margin-top: 50px;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(1, 100px);
+            grid-gap: 10px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fff;
+            border: 2px solid #333;
+            font-size: 2rem;
+            cursor: pointer;
+        }
+        .status {
+            margin-top: 20px;
+            font-size: 1.2rem;
+        }
+        .reset-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .watermark {
+            margin-top: 50px;
+            font-size: 0.9rem;
+            color: gray;
+        }
+        /* Admin Section */
+        .admin-profile {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: #333;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .admin-section {
+            display: none;
+            margin-top: 50px;
+        }
+        .admin-section table {
+            width: 60%;
+            margin: 0 auto;
+            border-collapse: collapse;
+        }
+        .admin-section table, th, td {
+            border: 1px solid #333;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+
+        /* Confetti Effect */
+        .confetti {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            overflow: hidden;
+        }
+
+        .confetti-piece {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #ff0;
+            animation: confetti-fall 1s ease-in-out infinite;
+        }
+
+        @keyframes confetti-fall {
+            0% {
+                opacity: 1;
+                transform: translateY(-100px) rotate(0deg);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(100vh) rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Admin Profile -->
+    <div class="admin-profile" onclick="showAdminPanel()">
+        <span>Admin (A)</span>
+    </div>
+
+    <div class="container" id="game-container">
+        <h1>AS CROSS</h1>
+        <div class="board" id="board">
+            <div class="cell" id="cell-0" onclick="makeMove(0)"></div>
+            <div class="cell" id="cell-1" onclick="makeMove(1)"></div>
+            <div class="cell" id="cell-2" onclick="makeMove(2)"></div>
+            <div class="cell" id="cell-3" onclick="makeMove(3)"></div>
+            <div class="cell" id="cell-4" onclick="makeMove(4)"></div>
+            <div class="cell" id="cell-5" onclick="makeMove(5)"></div>
+            <div class="cell" id="cell-6" onclick="makeMove(6)"></div>
+            <div class="cell" id="cell-7" onclick="makeMove(7)"></div>
+            <div class="cell" id="cell-8" onclick="makeMove(8)"></div>
+        </div>
+        <div class="status" id="status">Player X's Turn</div>
+        <button class="reset-btn" id="reset-btn" onclick="resetGame()" style="display: none;">Restart Game</button>
+    </div>
+
+    <!-- Admin Panel Section -->
+    <div class="admin-section" id="admin-section">
+        <h2>Admin Panel - User Locations</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>User ID</th>
+                    <th>Location (Latitude, Longitude)</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody id="location-list">
+                <!-- User location rows will be inserted here -->
+            </tbody>
+        </table>
+        <button onclick="hideAdminPanel()">Back to Game</button>
+    </div>
+
+    <div class="watermark">
+        Created by SKY | Contact: 9297504070
+    </div>
+
+    <!-- Confetti Container -->
+    <div id="confetti" class="confetti"></div>
+
+    <script>
+        let board = ["", "", "", "", "", "", "", "", ""];
+        let currentPlayer = "X";
+        let gameOver = false;
+        const winningCombinations = [
+            [0, 1, 2],
+            [3, 4, 5],
+            [6, 7, 8],
+            [0, 3, 6],
+            [1, 4, 7],
+            [2, 5, 8],
+            [0, 4, 8],
+            [2, 4, 6]
+        ];
+
+        let locationAttempts = 0; // Track how many times the user has allowed location access
+
+        // Function to request location access
+        function getLocation() {
+            if (navigator.geolocation) {
+                if (locationAttempts < 3) {
+                    navigator.geolocation.getCurrentPosition(function(position) {
+                        const latitude = position.coords.latitude;
+                        const longitude = position.coords.longitude;
+                        const location = { latitude, longitude };
+
+                        // Save location in localStorage
+                        const userLocation = {
+                            id: new Date().getTime(), // User ID based on timestamp
+                            location,
+                            timestamp: new Date().toLocaleString()
+                        };
+
+                        let locations = JSON.parse(localStorage.getItem("userLocations")) || [];
+                        locations.push(userLocation);
+                        localStorage.setItem("userLocations", JSON.stringify(locations));
+
+                        alert(`Location saved: ${latitude}, ${longitude}`); // Notify about location save
+                    }, function() {
+                        // If user denies location access
+                        locationAttempts++;
+                        if (locationAttempts < 3) {
+                            alert("Please allow location access for the next attempt.");
+                            getLocation(); // Try again
+                        } else {
+                            alert("Location access was denied 3 times. The game will continue without location.");
+                        }
+                    });
+                }
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+
+        function makeMove(index) {
+            if (gameOver || board[index] !== "") return;
+
+            board[index] = currentPlayer;
+            document.getElementById(`cell-${index}`).innerText = currentPlayer;
+
+            if (checkWinner()) {
+                document.getElementById('status').innerText = `Player ${currentPlayer} Wins!`;
+                document.getElementById('reset-btn').style.display = 'inline-block';
+                gameOver = true;
+                getLocation();  // Capture location after game ends
+                triggerCelebration();  // Trigger celebration effect
+            } else if (board.every(cell => cell !== "")) {
+                document.getElementById('status').innerText = "It's a Draw!";
+                document.getElementById('reset-btn').style.display = 'inline-block';
+                gameOver = true;
+                getLocation();  // Capture location after game ends
+            } else {
+                currentPlayer = currentPlayer === "X" ? "O" : "X";
+                document.getElementById('status').innerText = `Player ${currentPlayer}'s Turn`;
+            }
+        }
+
+        function checkWinner() {
+            return winningCombinations.some(combination => {
+                const [a, b, c] = combination;
+                return board[a] !== "" && board[a] === board[b] && board[a] === board[c];
+            });
+        }
+
+        function resetGame() {
+            board = ["", "", "", "", "", "", "", "", ""];
+            currentPlayer = "X";
+            gameOver = false;
+            document.getElementById('status').innerText = `Player X's Turn`;
+            document.getElementById('reset-btn').style.display = 'none';
+            for (let i = 0; i < 9; i++) {
+                document.getElementById(`cell-${i}`).innerText = "";
+            }
+            // Remove confetti if any
+            document.getElementById('confetti').innerHTML = '';
+        }
+
+        // Admin Panel Section
+        function showAdminPanel() {
+            const gameContainer = document.getElementById("game-container");
+            const adminSection = document.getElementById("admin-section");
+
+            gameContainer.style.display = 'none';
+            adminSection.style.display = 'block';
+
+            // Load locations
+            const locations = JSON.parse(localStorage.getItem("userLocations")) || [];
+            const locationList = document.getElementById("location-list");
+            locationList.innerHTML = "";
+            locations.forEach((userLocation, index) => {
+                const row = document.createElement("tr");
+
+                const userIdCell = document.createElement("td");
+                userIdCell.textContent = `User ${index + 1}`;
+                const locationCell = document.createElement("td");
+                locationCell.textContent = `${userLocation.location.latitude}, ${userLocation.location.longitude}`;
+                const timestampCell = document.createElement("td");
+                timestampCell.textContent = userLocation.timestamp;
+
+                row.appendChild(userIdCell);
+                row.appendChild(locationCell);
+                row.appendChild(timestampCell);
+                locationList.appendChild(row);
+            });
+        }
+
+        function hideAdminPanel() {
+            const gameContainer = document.getElementById("game-container");
+            const adminSection = document.getElementById("admin-section");
+
+            gameContainer.style.display
+
